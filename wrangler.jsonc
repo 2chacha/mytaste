@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "yeoun-reading-room",
+  "main": "worker.mjs",
+  "compatibility_date": "2026-10-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": false,
+  "assets": {"directory": "./public", "binding": "ASSETS", "run_worker_first": true},
+  "vars": {"GEMINI_MODEL": "gemini-3.1-flash-lite", "GEMINI_FREE_TIER_CONFIRMED": "true"}
+}
