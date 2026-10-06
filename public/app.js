@@ -82,13 +82,13 @@ async function analyzeNew(query,scope){
  busy=true;closeResults();hideRetry();rememberTask({query,type:scope,scope:requestedScope,retryAt:0});
  $('#result').setAttribute('aria-busy','true');
  const started=Date.now();
- const progress=setInterval(()=>{$('#status').textContent='분석 응답을 기다리고 있습니다 · '+Math.floor((Date.now()-started)/1000)+'초. 일시적인 오류는 자동으로 재시도합니다. 최대 약 2분 30초가 걸릴 수 있습니다.';},15000);
+ const progress=setInterval(()=>{$('#status').textContent='분석 응답을 기다리고 있습니다 · '+Math.floor((Date.now()-started)/1000)+'초. 오류가 나면 대기 후 다시 분석할 수 있습니다. 최대 약 2분이 걸릴 수 있습니다.';},15000);
  $('#status').textContent='작품 정보를 찾고 취향을 비교하고 있습니다. 잠시 기다려 주세요.';
  $('#searchForm').setAttribute('aria-busy','true');$('#searchForm button').textContent='분석 중…';
  document.querySelectorAll('#searchForm input,#searchForm button,#comicScope,.filter,#feedbackForm select,#feedbackForm textarea,#feedbackForm button').forEach(e=>e.disabled=true);
  try{
-  const response=await fetch('/api/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query,type:scope,...(scope==='만화'?{scope:$('#comicScope').value.trim()}:{})}),signal:AbortSignal.timeout(170000)});
-  const data=await response.json();if(!response.ok){const err=Error(data.message||'분석하지 못했습니다.');err.retryAfter=data.retryAfter||0;err.retryable=(!['API_NOT_CONFIGURED','FREE_TIER_REQUIRED'].includes(data.code)&&[429,503].includes(response.status))||data.code==='INCOMPLETE_RESPONSE';throw err;}
+  const response=await fetch('/api/analyze',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({query,type:scope,...(scope==='만화'?{scope:$('#comicScope').value.trim()}:{})}),signal:AbortSignal.timeout(140000)});
+  let data;try{data=await response.json();}catch{const err=Error('사이트 서버가 올바른 응답을 보내지 않았습니다. 잠시 후 다시 시도해 주세요.');err.retryable=response.status>=500;err.retryAfter=60;throw err;}if(!response.ok){const err=Error(data.message||'분석하지 못했습니다.');err.retryAfter=data.retryAfter||0;err.retryable=(!['API_NOT_CONFIGURED','FREE_TIER_REQUIRED'].includes(data.code)&&[429,503].includes(response.status))||data.code==='INCOMPLETE_RESPONSE';throw err;}
   rememberTask(null);
   if(data.status==='ready'){
    const w={...data.work,id:'ai-'+crypto.randomUUID(),connection:nearest(data.work).join(' · ')};
@@ -102,7 +102,7 @@ async function analyzeNew(query,scope){
    $('#matches').hidden=false;$('#matches')._candidates=data.candidates;$('#status').textContent=data.message;
   }else $('#status').textContent=data.message||'작품을 확인할 자료가 부족해 평가를 보류했습니다.';
   }catch(e){
-  $('#status').textContent=e.name==='TimeoutError'?'분석 시간이 초과되었습니다. 입력은 유지되며 다시 시도할 수 있습니다.':e.message||'연결하지 못했습니다. 다시 시도해 주세요.';
+  $('#status').textContent=e.name==='TimeoutError'?'분석 시간이 초과되었습니다. 입력은 유지되며 다시 시도할 수 있습니다.':e instanceof TypeError?'사이트 연결에 실패했습니다. 네트워크를 확인한 뒤 다시 시도해 주세요.':e.message||'연결하지 못했습니다. 다시 시도해 주세요.';
   if(e.retryable||e.name==='TimeoutError'||e instanceof TypeError){rememberTask({...pendingTask,retryAt:Date.now()+Math.min(86400,Math.max(0,e.retryAfter||0))*1000});showRetry();}else rememberTask(null);
  }
  finally{clearInterval(progress);busy=false;$('#result').removeAttribute('aria-busy');if(pendingTask)showRetry();$('#searchForm').removeAttribute('aria-busy');$('#searchForm button').textContent='분석하기';document.querySelectorAll('#searchForm input,#searchForm button,#comicScope,.filter,#feedbackForm select,#feedbackForm textarea,#feedbackForm button').forEach(e=>e.disabled=false);}

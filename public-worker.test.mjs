@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import worker from './worker.mjs';
+const env={ASSETS:{fetch:async request=>new Response(new URL(request.url).pathname==='/'?'public landing':'asset')}};
+assert.equal(await (await worker.fetch(new Request('https://example.com/'),env)).text(),'public landing');
+assert.equal(await (await worker.fetch(new Request('https://example.com/app.js'),env)).text(),'asset');
+const api=await worker.fetch(new Request('https://example.com/api/analyze',{method:'POST',headers:{origin:'https://example.com'},body:JSON.stringify({query:'작품',type:'문학'})}),env);
+assert.equal(api.status,503);assert.equal((await api.json()).code,'API_NOT_CONFIGURED');
+const origin=await worker.fetch(new Request('https://example.com/api/analyze',{method:'POST',headers:{origin:'https://other.com'},body:'{}'}),{...env,GEMINI_API_KEY:'mock',GEMINI_FREE_TIER_CONFIRMED:'true'});
+assert.equal(origin.status,403);
+console.log('Passed: anonymous landing and assets, analysis reaches secret configuration guard, cross-origin rejection');

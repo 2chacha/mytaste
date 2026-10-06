@@ -1,14 +1,18 @@
 {
-  "name": "yeoun-reading-room",
+  "name": "mytaste",
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "engines": {"node": ">=22.13.0"},
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
-    "check": "node --check public/app.js && node --check worker.mjs && node --test access.test.mjs",
+    "check": "node --check public/app.js && node --check worker.mjs && node --test public-worker.test.mjs && node --test recovery.test.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "package:check": "wrangler deploy --dry-run --outdir .worker-build"
   },
-  "devDependencies": {"wrangler": "4.92.0"}
+  "devDependencies": {
+    "wrangler": "4.92.0"
+  }
 }
