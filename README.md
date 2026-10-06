@@ -1,75 +1,46 @@
-# 여운 — GitHub + Cloudflare 외부 배포
+# mytaste — 로그인 없는 공개 배포
 
-이 폴더의 내용만 새 GitHub 저장소에 올립니다. Gemini 키, 감상 기록, 기존 Sites 계정·배포 정보는 포함하지 않습니다. 문학·영화·만화의 신규 분석, 저장된 작품, 최근 분석과 피드백 기능은 유지됩니다. 모델은 Gemini 3.1 Flash-Lite 전용입니다.
+이 배포본은 로그인 없이 페이지 조회 및 신규 작품 분석을 제공합니다. 방문자는 모두 소유자가 설정한 Gemini 무료 프로젝트 한도를 함께 사용합니다. Gemini 키는 계속 Cloudflare 서버 Secret에만 저장합니다. 감상 기록과 피드백은 각 방문자의 브라우저에 저장되며 초기 취향 프로필은 모두에게 동일합니다.
 
-GitHub는 코드 보관소이고 Cloudflare Workers가 웹페이지와 서버 분석을 실행합니다. GitHub Pages만으로는 신규 분석 서버를 실행할 수 없습니다.
+## 이미 GitHub에 이전 배포본을 올렸다면
 
-## 1. GitHub 저장소 만들기
+1. GitHub mytaste 저장소의 worker.mjs 파일을 엽니다.
+2. 연필 아이콘을 눌러 이 폴더의 worker.mjs 내용으로 전체 교체합니다.
+3. Commit changes를 누릅니다. Cloudflare 연결이 완료됐다면 자동 배포됩니다.
+4. Cloudflare에서 mytaste → Access를 확인합니다. 보호 설정이 없으면 새로 설정하지 않습니다. 이미 해당 Worker에 보호를 적용했다면 해당 보호만 해제합니다. 계정 전체 보호가 있다면 이 Worker만 Make this Worker public으로 예외 처리합니다.
+5. Domains에서 Production 주소를 켭니다. Preview는 꺼두어도 됩니다.
+6. https://mytaste.chmn-lee.workers.dev 를 로그아웃 또는 시크릿 창에서 확인합니다.
 
-1. GitHub에 로그인 → 우측 상단 `+` → `New repository`.
-2. Repository name: `yeoun-reading-room` (다른 이름도 가능).
-3. 개인 취향 프로필이 코드에 포함되므로 `Private` 선택을 권장합니다.
-4. 저장소를 만든 뒤 `uploading an existing file` 또는 `Add file → Upload files`.
-5. 이 폴더 안의 파일과 `public`, `lib` 폴더를 올립니다. 폴더 자체를 한 단계 더 감싸지 마세요. 저장소 최상단에 `package.json`, `wrangler.jsonc`, `worker.mjs`가 보여야 합니다.
-6. `Commit changes`로 저장합니다. `.env.gemini.local`, API 키와 감상 백업은 올리지 마세요.
+로그인 없이 페이지를 여는 데 필요한 코드 변경은 worker.mjs 하나입니다. 전체 파일을 새로 업로드한다면 package.json과 public-worker.test.mjs도 함께 업로드합니다.
 
-## 2. Cloudflare에 GitHub 연결
+## 신규 분석 설정
 
-1. Cloudflare 계정으로 로그인 → `Workers & Pages` → Worker 생성 → GitHub 저장소 연결.
-2. GitHub에서 방금 만든 저장소만 접근하도록 승인하고 선택합니다.
-3. Worker 이름: **`yeoun-reading-room`**. `wrangler.jsonc`의 `name`과 같아야 합니다. 이름을 바꾸려면 양쪽을 함께 바꿉니다.
-4. 다음 값을 입력합니다.
+mytaste → Settings → Variables and Secrets의 서버 런타임 설정:
 
-| 항목 | 입력값 |
-|---|---|
-| Production branch | `main` 또는 저장소의 기본 브랜치 |
-| Root directory | 저장소 최상단 (기본값) |
-| Build command | `npm run check` |
-| Deploy command | `npm run deploy` |
-| Node version | 22 이상 (예: `NODE_VERSION=24`) |
+- GEMINI_API_KEY: Secret으로 기존 무료 Gemini 키 저장.
+- GEMINI_MODEL: gemini-3.1-flash-lite (설정 파일에 포함).
+- GEMINI_FREE_TIER_CONFIRMED: true (설정 파일에 포함).
 
-의존성은 Cloudflare가 설치합니다. 첫 배포 뒤 `https://yeoun-reading-room.<계정>.workers.dev` 주소가 생깁니다. 아직 로그인 설정이 없으면 설정 안내/503이 표시되는 것이 정상입니다. 설정을 완료하기 전에는 서버 분석을 실행하지 않습니다.
+ACCESS_ISSUER, ACCESS_AUD, OWNER_EMAIL은 이 공개 배포본에서 사용하지 않습니다. API 키를 GitHub나 브라우저 코드에 넣지 않습니다.
 
-## 3. 개인용 로그인 보호
+## GitHub 연결 및 검사
 
-기존 Sites에서는 소유자 로그인으로 보호됐습니다. 새 호스팅에서는 Cloudflare Access로 같은 개인용 접근 범위를 설정합니다.
+- Worker 이름: mytaste (wrangler.jsonc의 name과 일치).
+- Build command: npm run check
+- Deploy command: npx wrangler deploy 또는 npm run deploy
+- Preview command: npx wrangler versions upload
+- Root directory: 저장소 최상단.
 
-1. Cloudflare Zero Trust 초기 설정을 완료합니다. 개인용 무료 플랜을 선택합니다.
-2. Worker의 `Settings → Domains & Routes`에서 **production workers.dev URL**에 Cloudflare Access를 활성화합니다. Preview URL은 이 설정 파일에서 꺼두었습니다.
-3. Access application의 허용 정책에 **본인 이메일 하나만** 넣습니다. `Everyone`은 선택하지 않습니다. 이메일 일회용 코드(One-time PIN)로 로그인할 수 있습니다.
-4. Access application 설정에서 `Application Audience (AUD)`를 복사합니다.
-5. 본인의 Zero Trust 팀 주소를 확인합니다. 형식은 `https://<팀이름>.cloudflareaccess.com`이며 뒤에 `/`를 붙이지 않습니다.
-6. Worker의 런타임 `Variables and Secrets`에 아래 값을 저장합니다. GitHub 빌드 환경변수와 Worker 런타임 환경변수는 별개입니다.
+검사: npm install 후 npm run check.
+배포 없이 번들 확인: npm run package:check.
+외부 주소에서의 실제 공개 전환은 GitHub 파일 교체와 Cloudflare 설정 후 완료됩니다. 이 파일 준비만으로 현재 운영 사이트 설정이 바뀌지는 않습니다.
 
-| 이름 | 종류 | 값 |
-|---|---|---|
-| `GEMINI_API_KEY` | Secret | 이미 발급한 Gemini 무료 프로젝트 키 |
-| `ACCESS_ISSUER` | Secret | `https://<팀이름>.cloudflareaccess.com` |
-| `ACCESS_AUD` | Secret | Access application의 AUD 값 |
-| `OWNER_EMAIL` | Secret | 허용 정책에 넣은 본인 이메일 |
+공식 안내: https://developers.cloudflare.com/workers/configuration/cloudflare-access/
 
-`GEMINI_MODEL=gemini-3.1-flash-lite`, `GEMINI_FREE_TIER_CONFIRMED=true`는 설정 파일에 이미 포함돼 있습니다. 유료 Gemini 프로젝트로 연결하지 않습니다. 키를 채팅이나 GitHub에 붙여넣지 말고 Cloudflare의 Secret 입력란에만 저장합니다.
+## 2026-10-06 응답 지연 개선
 
-7. 저장·배포 후 workers.dev 주소를 열어 이메일 인증 → 소유자 로그인 → 작품 검색을 확인합니다. 코드에서도 JWT 서명·발급자·대상·만료·소유자 이메일을 확인하므로 설정 누락/인증 실패 시 분석이 차단됩니다.
+위키백과 조회 후보는 최대 2개, 본문은 문서당 4,000자 및 전체 8,000자로 줄였습니다. 비교 프로필은 제목·창작자·특성·감점만 보냅니다. 출력 상한은 작품 확인 512토큰, 취향 분석 2,048토큰입니다. 개별 요청 대기는 45초, 전체 작업 예산은 120초입니다. 혼잡·시간 초과 시 즉시 재호출하지 않고 60초 이상 대기 후 사용자가 다시 분석하기를 눌러 이어갑니다. 무료 한도의 Retry-After가 더 길면 그 값을 따릅니다. 중간 결과는 6시간, 완료 결과는 7일 저장하며 공개된 고정 프로필의 동일 작품·매체·범위 결과를 방문자 간 재사용합니다. 서버 캐시는 실행 환경/지역에 따라 재사용이 되지 않을 수 있으므로 영구 저장 보장은 아닙니다. 감상 피드백에 따른 점수 계산은 각 브라우저에서 수행합니다.
 
-## 4. 기존 감상 기록 이동
+수정한 로컬 서버 코드로 실제 Gemini 무료 분석을 한 번 실행하여 『창백한 불꽃』, 블라디미르 나보코프, 8개 평가값, 해당 작품의 한국어·영어 위키백과 출처가 10초 만에 반환되는 것을 확인했습니다. 이것은 수정본의 1회 성공 검증이며 항상 10초 내 성공한다는 보장은 아닙니다. 운영 중인 Cloudflare 사이트에는 GitHub 파일 교체 후 반영됩니다.
 
-브라우저 저장은 사이트 주소별로 분리됩니다. 기존 여운에서 `내 감상 기록 → 기록 백업`으로 파일을 받은 뒤 새 사이트에서 `백업 불러오기`를 사용하세요. 저장된 신규 작품과 별점·코멘트를 함께 옮길 수 있습니다. 최근 열어본 제목 목록은 별도로 다시 쌓입니다.
-
-## 5. 이후 업데이트
-
-GitHub에 변경사항을 commit/push하면 연결된 Cloudflare Worker가 검사 후 자동 배포합니다. 새로운 코드에 API 키를 포함할 필요가 없습니다. 기존 Sites를 수정한 내용은 GitHub에 자동 동기화되지 않습니다. 원본 프로젝트에서 `node scripts/export-external.cjs`로 최신 외부 배포본을 다시 만든 뒤 GitHub에 반영합니다.
-
-## 확인 및 문제 해결
-
-- `npm install` → `npm run check`로 문법과 인증 검사를 실행합니다.
-- `npm run package:check`는 배포 없이 Worker 번들만 만듭니다.
-- 첫 배포 이후 503 설정 안내: Access 관련 Secret 값을 확인합니다.
-- 401/403: Access 활성화, AUD/팀 주소, 허용 이메일을 확인합니다.
-- Gemini 429: 무료 한도 회복을 기다립니다. 503 혼잡은 같은 모델로 한 번 재시도합니다.
-- 외부 계정 연결과 실제 외부 주소에서의 검증은 아직 완료되지 않았습니다. 준비된 코드 검사와 배포 파일 생성은 계정 연결과 별개의 작업입니다.
-
-공식 문서:
-- https://developers.cloudflare.com/workers/ci-cd/builds/configuration/
-- https://developers.cloudflare.com/workers/configuration/cloudflare-access/
-- https://docs.github.com/en/pages/getting-started-with-github-pages/what-is-github-pages
+일시적인 503·시간 초과·연결 실패의 대기 제한은 같은 작품·분야·범위와 같은 분석 단계에만 적용합니다. 다른 작품이나 단계는 차단하지 않습니다. 대기 제한으로 차단한 요청은 REQUEST_COOLDOWN으로 표시하며 이번 요청을 Google에 보내지 않았음을 안내합니다. 실제 429 무료 사용 한도는 API 키 전체에 적용합니다.
