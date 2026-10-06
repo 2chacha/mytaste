@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import {publicResearch,handleAnalysis,validateAnalysis} from './lib/analysis.mjs';
+const page=(title,extract,extra={})=>({title,extract,fullurl:'https://ko.wikipedia.org/wiki/'+encodeURIComponent(title),...extra});
+const reply=pages=>Response.json({query:{pages:Object.fromEntries(pages.map((p,i)=>[i+1,p]))}});
+let calls=[];
+const research=await publicResearch('몬스터',async url=>{
+ const u=new URL(url);calls.push(u);
+ if(u.hostname==='en.wikipedia.org')return reply([page('Monster (manga)','Manga by Naoki Urasawa.',{fullurl:'https://en.wikipedia.org/wiki/Monster_(manga)'})]);
+ if(u.searchParams.has('titles'))return reply([page('몬스터','여러 작품의 이름이다.',{pageprops:{disambiguation:''}})]);
+ return reply([page('몬스터 (만화)','우라사와 나오키의 만화.',{index:1,langlinks:[{lang:'en','*':'Monster (manga)'}]}),page('몬스터 (영화)','영화에 관한 문서.',{index:2})]);
+});
+assert.equal(calls.length,3);assert.ok(calls.every(u=>u.hostname.endsWith('wikipedia.org')));
+assert.ok(calls.some(u=>u.searchParams.get('titles')==='Monster (manga)'));
+assert.match(research.researchText,/동음이의어 후보 문서/);assert.match(research.researchText,/몬스터 \(영화\)/);assert.match(research.researchText,/Monster \(manga\)/);assert.ok(research.researchText.length<=8000);
+const rated={status:'ready',message:'분석',candidates:[],work:{title:'몬스터',creator:'우라사와 나오키',type:'만화',year:'1994',sourceRefs:[3,3],features:Array(8).fill(8),penalties:[0,0,0],evidence:Array(8).fill('근거'),reason:'이유',risk:'거리감',confidence:'보통',bridge:'연결'}};
+assert.deepEqual(validateAnalysis(rated,research.sources).work.sources,[research.sources[2]],'only cited sources are shown, with duplicates removed');
+assert.throws(()=>validateAnalysis({...rated,work:{...rated.work,sourceRefs:[99]}},research.sources),/invalid_source_refs/);
+assert.equal(validateAnalysis({...rated,work:{...rated.work,sourceRefs:[]}},research.sources).status,'unknown');
+await assert.rejects(()=>publicResearch('제목',async()=>{throw new TypeError('network')}),e=>e.code==='WIKI_UNAVAILABLE'&&e.stage==='research');
+const env={GEMINI_API_KEY:'mock',GEMINI_FREE_TIER_CONFIRMED:'true'};
+const request=query=>new Request('https://example.com/api/analyze',{method:'POST',body:JSON.stringify({query,type:'전체'})});
+let google=0;
+let response=await handleAnalysis(request('없는 작품'),env,[],async url=>{assert.ok(url.includes('wikipedia.org'));return reply([])});
+assert.equal(response.status,200);assert.equal((await response.json()).status,'unknown');
+response=await handleAnalysis(request('작품'),env,[],async()=>{throw new TypeError('network')});let data=await response.json();assert.equal(response.status,503);assert.equal(data.code,'WIKI_UNAVAILABLE');assert.match(data.message,/Gemini를 호출하지 않았습니다/);
+response=await handleAnalysis(request('봉준호'),env,[],async(url,options)=>{
+ if(url.includes('wikipedia.org'))return reply([page('봉준호','대한민국 영화 감독. 대표작으로 기생충과 살인의 추억이 있다.')]);
+ google++;const body=JSON.parse(options.body);assert.ok(body.generationConfig.responseJsonSchema.properties.work);assert.match(body.systemInstruction.parts[0].text,/검색 순위는 작품 일치의 증거가 아니다/);assert.match(body.contents[0].parts[0].text,/봉준호/);
+ return Response.json({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify({status:'choose',message:'작품을 선택하세요',candidates:[{title:'기생충',creator:'봉준호',type:'영화',year:'2019'}]})}]}}]});
+});data=await response.json();assert.equal(data.status,'choose');assert.equal(google,1,'author lookup uses only the single analysis request');
+console.log('Passed: direct Wikipedia lookup, linked English article, ambiguity context, source failure vs no match, author candidates and one Gemini request');

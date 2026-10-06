@@ -7,7 +7,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "check": "node --check public/app.js && node --check worker.mjs && node --test public-worker.test.mjs && node --test recovery.test.mjs",
+    "check": "node --check public/app.js && node --check worker.mjs && node --test public-worker.test.mjs && node --test recovery.test.mjs && node --test wiki.test.mjs",
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
     "package:check": "wrangler deploy --dry-run --outdir .worker-build"
