@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "yeoun-reading-room",
+  "name": "mytaste",
   "main": "worker.mjs",
   "compatibility_date": "2026-10-06",
   "compatibility_flags": ["nodejs_compat"],
